@@ -27,11 +27,26 @@ async function run() {
         await client.connect();
         const medicine = client.db("MediBuyersDB").collection("meidicine")
 
-        app.get('/medicine', async(req,res)=>{
+        app.get('/medicine', async (req, res) => {
             const result = await medicine.find().toArray();
             // console.log(result)
             res.send(result);
         })
+
+        app.get('/category/:category', async (req, res) => {
+            const category = req.params.category;
+            
+            try {
+                // Case-insensitive search using a regular expression
+                const result = await medicine.find({ category: { $regex: new RegExp(category, 'i') } }).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send("Error retrieving data");
+            }
+        });
+        
+        
 
 
         // Send a ping to confirm a successful connection
