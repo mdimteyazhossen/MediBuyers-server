@@ -26,6 +26,7 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
         const medicine = client.db("MediBuyersDB").collection("meidicine")
+        const cart = client.db("MediBuyersDB").collection("carts")
 
         app.get('/medicine', async (req, res) => {
             const result = await medicine.find().toArray();
@@ -33,9 +34,14 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/medicine-data', async (req, res) => {
+            const result = await medicine.find({ discount: { $exists: true } }).toArray();
+            res.send(result);
+        })
+
         app.get('/category/:category', async (req, res) => {
             const category = req.params.category;
-            
+
             try {
                 // Case-insensitive search using a regular expression
                 const result = await medicine.find({ category: { $regex: new RegExp(category, 'i') } }).toArray();
@@ -45,8 +51,13 @@ async function run() {
                 res.status(500).send("Error retrieving data");
             }
         });
-        
-        
+
+        //carts collection
+        app.post('/carts', async(req,res)=>{
+            const cartItem =req.body;
+            const result = await cart.insertOne(cartItem);
+            res.send(result);
+        })
 
 
         // Send a ping to confirm a successful connection
