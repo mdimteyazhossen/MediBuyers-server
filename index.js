@@ -53,6 +53,10 @@ async function run() {
             }
         });
         //users collection
+        app.get('/users', async(req,res)=>{
+            const result = await users.find().toArray();
+            res.send(result)
+        })
         app.post('/users', async (req, res) => {
             const user = req.body;
             const query = { email: user.email }
@@ -63,6 +67,25 @@ async function run() {
             const result = await users.insertOne(user);
             res.send(result);
         })
+        app.put('/update-user/:id', async (req, res) => {
+            const { id } = req.params;
+            const { role } = req.body;
+
+            try {
+                const result = await users.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: { role } }
+                );
+
+                if (result.modifiedCount === 0) {
+                    return res.status(404).send({ message: 'Cart item not found' });
+                }
+
+                res.send({ message: 'Cart item updated successfully' });
+            } catch (error) {
+                res.status(500).send({ message: 'Error updating cart item' });
+            }
+        });
 
         //carts collection
         app.get('/carts', async (req, res) => {
