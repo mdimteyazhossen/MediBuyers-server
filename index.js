@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cgep2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -64,6 +64,37 @@ async function run() {
             const result = await cart.insertOne(cartItem);
             res.send(result);
         })
+
+        app.delete('/carts/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await cart.deleteOne(query);
+            res.send(result)
+        })
+
+        app.put('/update-cart/:id', async (req, res) => {
+            const { id } = req.params;
+            const { quantity } = req.body;
+
+            if (!quantity || quantity <= 0) {
+                return res.status(400).send({ message: 'Invalid quantity' });
+            }
+
+            try {
+                const result = await cart.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: { quantity } }
+                );
+
+                if (result.modifiedCount === 0) {
+                    return res.status(404).send({ message: 'Cart item not found' });
+                }
+
+                res.send({ message: 'Cart item updated successfully' });
+            } catch (error) {
+                res.status(500).send({ message: 'Error updating cart item' });
+            }
+        });
 
 
         // Send a ping to confirm a successful connection
