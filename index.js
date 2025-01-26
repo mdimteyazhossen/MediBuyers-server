@@ -27,6 +27,7 @@ async function run() {
         await client.connect();
         const medicine = client.db("MediBuyersDB").collection("meidicine")
         const cart = client.db("MediBuyersDB").collection("carts")
+        const users = client.db("MediBuyersDB").collection("users")
 
         app.get('/medicine', async (req, res) => {
             const result = await medicine.find().toArray();
@@ -51,6 +52,17 @@ async function run() {
                 res.status(500).send("Error retrieving data");
             }
         });
+        //users collection
+        app.post('/users', async (req, res) => {
+            const user = req.body;
+            const query = { email: user.email }
+            const existingUser = await users.findOne(query);
+            if (existingUser) {
+                return res.send({ message: 'user already exists', insertedId: null })
+            }
+            const result = await users.insertOne(user);
+            res.send(result);
+        })
 
         //carts collection
         app.get('/carts', async (req, res) => {
