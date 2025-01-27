@@ -29,6 +29,7 @@ async function run() {
         const medicine = client.db("MediBuyersDB").collection("meidicine")
         const cart = client.db("MediBuyersDB").collection("carts")
         const users = client.db("MediBuyersDB").collection("users")
+        const allCategory = client.db("MediBuyersDB").collection("category")
         //jwt related
         app.post('/jwt', async (req, res) => {
             const user = req.body;
@@ -42,6 +43,11 @@ async function run() {
             const result = await medicine.find().toArray();
             // console.log(result)
             res.send(result);
+        })
+        app.post('/medicine',async(req,res)=>{
+            const item = req.body;
+            const result =medicine.insertOne(item);
+            res.send(result)
         })
 
         app.get('/medicine-data', async (req, res) => {
@@ -57,10 +63,15 @@ async function run() {
                 const result = await medicine.find({ category: { $regex: new RegExp(category, 'i') } }).toArray();
                 res.send(result);
             } catch (error) {
-                console.error(error);
+                // console.error(error);
                 res.status(500).send("Error retrieving data");
             }
         });
+
+        app.get('/allcategory', async (req, res) => {
+            const result = await allCategory.find().toArray();
+            res.send(result);
+        })
 
         // middleware
         const verifyToken = (req, res, next) => {
@@ -77,19 +88,25 @@ async function run() {
                 next();
             })
         }
-        const verifyAdmin = async(req,res,next)=>{
+        const verifyAdmin = async (req, res, next) => {
             const email = req.decoded.email;
-            const query = {email: email}
+            const query = { email: email }
             const user = await users.findOne(query)
             const isAdmin = user?.role === 'admin';
-            if(!isAdmin){
+            if (!isAdmin) {
                 return res.status(403).send({ message: 'forbidden success' });
             }
             next();
         }
 
         //users collection
-        app.get('/users', verifyToken,verifyAdmin, async (req, res) => {
+        app.get('/medicine/:email', async (req, res) => {
+            const { email } = req.params;
+            const result = await medicine.find({ email: email }).toArray();
+            res.send(result);
+        });
+
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             console.log(req.headers);
             const result = await users.find().toArray();
             res.send(result)
