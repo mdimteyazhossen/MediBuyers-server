@@ -26,11 +26,12 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
         const medicine = client.db("MediBuyersDB").collection("meidicine")
         const cart = client.db("MediBuyersDB").collection("carts")
         const users = client.db("MediBuyersDB").collection("users")
         const allCategory = client.db("MediBuyersDB").collection("category")
+        const payments = client.db("MediBuyersDB").collection("payments")
         //jwt related
         app.post('/jwt', async (req, res) => {
             const user = req.body;
@@ -73,6 +74,76 @@ async function run() {
             const result = await allCategory.find().toArray();
             res.send(result);
         })
+        app.post('/allcategory', async (req, res) => {
+            const { categoryName, categoryImage } = req.body;
+
+            if (!categoryName || !categoryImage) {
+                return res.status(400).json({ error: 'Both category name and image URL are required' });
+            }
+
+            const newCategory = { categoryName, categoryImage };
+
+            try {
+                const result = await allCategory.insertOne(newCategory);
+                res.status(201).json({
+                    message: 'Category added successfully',
+                    category: result.ops[0]  // Send the added category data
+                });
+            } catch (err) {
+                console.error(err);
+                res.status(500).json({ error: 'Failed to add category' });
+            }
+        });
+
+        // PUT - Update Category
+        app.put('/allcategory/:id', async (req, res) => {
+            const { categoryName, categoryImage } = req.body;
+
+            if (!categoryName || !categoryImage) {
+                return res.status(400).json({ error: 'Both category name and image URL are required' });
+            }
+
+            const updatedCategory = { categoryName, categoryImage };
+
+            try {
+                const result = await allCategory.updateOne(
+                    { _id: new ObjectId(req.params.id) }, // Find category by ID
+                    { $set: updatedCategory } // Update category fields
+                );
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).json({ error: 'Category not found' });
+                }
+
+                res.status(200).json({
+                    message: 'Category updated successfully',
+                    updatedCategory: { ...updatedCategory, _id: req.params.id } // Send updated category data
+                });
+            } catch (err) {
+                console.error(err);
+                res.status(500).json({ error: 'Failed to update category' });
+            }
+        });
+
+        // DELETE - Delete a Category
+        app.delete('/allcategory/:id', async (req, res) => {
+            try {
+                const result = await allCategory.deleteOne({ _id: new ObjectId(req.params.id) });
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ error: 'Category not found' });
+                }
+
+                res.status(200).json({
+                    message: 'Category deleted successfully',
+                    deletedId: req.params.id
+                });
+            } catch (err) {
+                console.error(err);
+                res.status(500).json({ error: 'Failed to delete category' });
+            }
+        });
+
 
         // middleware
         const verifyToken = (req, res, next) => {
@@ -95,6 +166,16 @@ async function run() {
             const user = await users.findOne(query)
             const isAdmin = user?.role === 'admin';
             if (!isAdmin) {
+                return res.status(403).send({ message: 'forbidden success' });
+            }
+            next();
+        }
+        const verifySeller = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await users.findOne(query)
+            const isSeller = user?.role === 'seller';
+            if (!isSeller) {
                 return res.status(403).send({ message: 'forbidden success' });
             }
             next();
@@ -125,6 +206,24 @@ async function run() {
             }
             res.send({ admin })
         })
+        // Backend Route to check if the user is a seller
+        app.get('/users/seller/:email', verifyToken, async (req, res) => {
+            const email = req.params.email;
+            if (email !== req.decoded.email) {  // Ensure the email matches the decoded JWT email
+                return res.status(403).send({ message: 'Unauthorized access' });
+            }
+            const query = { email: email };
+            console.log(query)
+            const user = await users.findOne(query); 
+            let seller = false;
+
+            if (user) {
+                seller = user.role === 'seller';
+            }
+            res.send({ seller });  // Return the seller status
+        });
+
+
         app.post('/users', async (req, res) => {
             const user = req.body;
             const query = { email: user.email }
@@ -212,17 +311,74 @@ async function run() {
 
                 res.send({ clientSecret: paymentIntent.client_secret });
             } catch (error) {
-                console.error(error);
+                // console.error(error);
                 res.status(400).send({ error: error.message });
+            }
+        });
+        app.post('/payments', async (req, res) => {
+            try {
+                const payment = req.body;
+
+                // Insert payment into the database
+                const paymentResult = await payments.insertOne(payment);
+
+                // Delete the cart item
+                const query = { _id: new ObjectId(payment.cartId) }; // Make sure it's a valid ObjectId
+                const deleteResult = await cart.deleteOne(query);
+
+                res.send({ paymentResult, deleteResult });
+            } catch (error) {
+                console.error('Error processing payment or deleting cart:', error);
+                res.status(500).send({ error: 'An error occurred while processing your payment.' });
+            }
+        });
+        app.get('/payments', async (req, res) => {
+            const result = await payments.find().toArray();
+            res.send(result);
+        })
+        app.get('/payments/:email', async (req, res) => {
+            const { email } = req.params;
+            const result = await payments.find({ buyerEmail: email }).toArray();
+            res.send(result);
+        })
+        app.get('/paymentsseller/:email', async (req, res) => {
+            const { email } = req.params;
+            const result = await payments.find({ buyerEmail: email }).toArray();
+            res.send(result);
+        })
+        app.put('/payment/admin/:id', async (req, res) => {
+            const { id } = req.params; // Extract the payment ID from the URL
+            const { status } = req.body; // Extract the new status from the request body
+
+            // Validate the status (it should be either 'pending' or 'paid')
+            if (!['pending', 'paid'].includes(status)) {
+                return res.status(400).json({ message: 'Invalid status value. Must be "pending" or "paid".' });
+            }
+
+            try {
+                // Update payment status
+                const result = await payments.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: { status } }
+                );
+
+                if (result.modifiedCount === 0) {
+                    return res.status(404).send({ message: 'Payment not found or status is already set to the same value' });
+                }
+
+                // Send the success response
+                res.send({ message: 'Payment status updated successfully' });
+            } catch (error) {
+                console.error(error);
+                res.status(500).json({ message: 'Error updating payment status' });
             }
         });
 
 
-
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
+    //     await client.db("admin").command({ ping: 1 });
+    //     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
     }
