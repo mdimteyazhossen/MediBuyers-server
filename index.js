@@ -3,6 +3,7 @@ const app = express();
 const cors = require('cors')
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 //middleware
@@ -44,9 +45,9 @@ async function run() {
             // console.log(result)
             res.send(result);
         })
-        app.post('/medicine',async(req,res)=>{
+        app.post('/medicine', async (req, res) => {
             const item = req.body;
-            const result =medicine.insertOne(item);
+            const result = medicine.insertOne(item);
             res.send(result)
         })
 
@@ -197,6 +198,25 @@ async function run() {
                 res.status(500).send({ message: 'Error updating cart item' });
             }
         });
+        //payment intent
+
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body;
+
+            try {
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount: price, // example price value
+                    currency: 'usd',
+                    payment_method_types: ['card'], // Correct parameter
+                });
+
+                res.send({ clientSecret: paymentIntent.client_secret });
+            } catch (error) {
+                console.error(error);
+                res.status(400).send({ error: error.message });
+            }
+        });
+
 
 
         // Send a ping to confirm a successful connection
