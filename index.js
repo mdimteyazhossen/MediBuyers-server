@@ -75,13 +75,13 @@ async function run() {
             res.send(result);
         })
         app.post('/allcategory', async (req, res) => {
-            const { categoryName, categoryImage } = req.body;
+            const { category, image } = req.body;
 
-            if (!categoryName || !categoryImage) {
+            if (!category || !image) {
                 return res.status(400).json({ error: 'Both category name and image URL are required' });
             }
 
-            const newCategory = { categoryName, categoryImage };
+            const newCategory = { category, image };
 
             try {
                 const result = await allCategory.insertOne(newCategory);
@@ -97,13 +97,13 @@ async function run() {
 
         // PUT - Update Category
         app.put('/allcategory/:id', async (req, res) => {
-            const { categoryName, categoryImage } = req.body;
+            const { category, image } = req.body;
 
-            if (!categoryName || !categoryImage) {
+            if (!category || !image) {
                 return res.status(400).json({ error: 'Both category name and image URL are required' });
             }
 
-            const updatedCategory = { categoryName, categoryImage };
+            const updatedCategory = { category, image };
 
             try {
                 const result = await allCategory.updateOne(
@@ -214,7 +214,7 @@ async function run() {
             }
             const query = { email: email };
             console.log(query)
-            const user = await users.findOne(query); 
+            const user = await users.findOne(query);
             let seller = false;
 
             if (user) {
@@ -376,9 +376,9 @@ async function run() {
 
 
         // Send a ping to confirm a successful connection
-    //     await client.db("admin").command({ ping: 1 });
-    //     console.log("Pinged your deployment. You successfully connected to MongoDB!");
-     } finally {
+        //     await client.db("admin").command({ ping: 1 });
+        //     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
     }
